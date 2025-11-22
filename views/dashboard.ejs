@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TinyLink - Dashboard</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="header">
+    <h1>TinyLink</h1>
+    <p class="subtitle">Simple URL shortener with stats</p>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Create a new short link</h2>
+      <form id="create-form" class="form">
+        <div class="form-group">
+          <label for="url">Target URL<span class="required">*</span></label>
+          <input type="url" id="url" name="url" placeholder="https://example.com/very/long/url" required />
+        </div>
+
+        <div class="form-group">
+          <label for="code">Custom code (optional, 6–8 letters/numbers)</label>
+          <input type="text" id="code" name="code" maxlength="8" />
+        </div>
+
+        <div id="form-error" class="alert alert-error hidden"></div>
+        <div id="form-success" class="alert alert-success hidden"></div>
+
+        <button type="submit" id="submit-btn" class="btn">Create</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>All links</h2>
+        <input
+          type="text"
+          id="search"
+          class="search-input"
+          placeholder="Search by code or URL"
+        />
+      </div>
+
+      <% if (links.length === 0) { %>
+        <p class="empty-state">No links yet. Create your first one above.</p>
+      <% } else { %>
+        <div class="table-wrapper">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Short code</th>
+                <th>Target URL</th>
+                <th>Total clicks</th>
+                <th>Last clicked</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="links-table-body">
+              <% links.forEach(function(link) { %>
+                <tr data-code="<%= link.code %>">
+                  <td>
+                    <a href="/<%= link.code %>" target="_blank">
+                      <%= link.code %>
+                    </a>
+                  </td>
+                  <td title="<%= link.target_url %>">
+                    <span class="truncate"><%= link.target_url %></span>
+                  </td>
+                  <td><%= link.total_clicks %></td>
+                  <td>
+                    <% if (link.last_clicked_at) { %>
+                      <%= new Date(link.last_clicked_at).toLocaleString() %>
+                    <% } else { %>
+                      -
+                    <% } %>
+                  </td>
+                  <td>
+                    <button class="btn-sm copy-btn" data-url="<%= baseUrl %>/<%= link.code %>">
+                      Copy
+                    </button>
+                    <a class="btn-sm secondary" href="/code/<%= link.code %>">
+                      Stats
+                    </a>
+                    <button class="btn-sm danger delete-btn" data-code="<%= link.code %>">
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>TinyLink &middot; Made for take-home assignment</span>
+  </footer>
+
+  <script>
+    const form = document.getElementById('create-form');
+    const urlInput = document.getElementById('url');
+    const codeInput = document.getElementById('code');
+    const errorBox = document.getElementById('form-error');
+    const successBox = document.getElementById('form-success');
+    const submitBtn = document.getElementById('submit-btn');
+    const searchInput = document.getElementById('search');
+
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.classList.remove('hidden');
+      successBox.classList.add('hidden');
+    }
+
+    function showSuccess(msg) {
+      successBox.textContent = msg;
+      successBox.classList.remove('hidden');
+      errorBox.classList.add('hidden');
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const url = urlInput.value.trim();
+      const code = codeInput.value.trim();
+
+      errorBox.classList.add('hidden');
+      successBox.classList.add('hidden');
+
+      if (!url) {
+        showError('Please enter a URL.');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating...';
+
+      try {
+        const res = await fetch('/api/links', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, code: code || undefined }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showError(data.error || 'Something went wrong.');
+        } else {
+          showSuccess('Short link created: ' + data.link.code);
+          urlInput.value = '';
+          codeInput.value = '';
+          window.location.reload();
+        }
+      } catch (err) {
+        console.error(err);
+        showError('Network error. Please try again.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Create';
+      }
+    });
+
+    document.addEventListener('click', async (e) => {
+      if (e.target.matches('.delete-btn')) {
+        const code = e.target.getAttribute('data-code');
+        if (!confirm('Delete link ' + code + '?')) return;
+
+        try {
+          const res = await fetch('/api/links/' + code, {
+            method: 'DELETE',
+          });
+
+          if (!res.ok) {
+            alert('Failed to delete link.');
+            return;
+          }
+
+          const row = document.querySelector('tr[data-code="' + code + '"]');
+          if (row) row.remove();
+        } catch (err) {
+          console.error(err);
+          alert('Network error while deleting.');
+        }
+      }
+
+      if (e.target.matches('.copy-btn')) {
+        const shortUrl = e.target.getAttribute('data-url');
+        try {
+          await navigator.clipboard.writeText(shortUrl);
+          e.target.textContent = 'Copied!';
+          setTimeout(() => (e.target.textContent = 'Copy'), 1500);
+        } catch (err) {
+          console.error(err);
+          alert('Failed to copy.');
+        }
+      }
+    });
+
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        const q = searchInput.value.toLowerCase();
+        const rows = document.querySelectorAll('#links-table-body tr');
+        rows.forEach((row) => {
+          const code = row.getAttribute('data-code').toLowerCase();
+          const urlCell = row.querySelector('td:nth-child(2)').innerText.toLowerCase();
+          if (code.includes(q) || urlCell.includes(q)) {
+            row.style.display = '';
+          } else {
+            row.style.display = 'none';
+          }
+        });
+      });
+    }
+  </script>
+</body>
+</html>

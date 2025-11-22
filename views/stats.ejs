@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TinyLink - Stats for <%= link.code %></title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="header">
+    <h1>TinyLink</h1>
+    <p class="subtitle">Stats for <code><%= link.code %></code></p>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Link details</h2>
+      <dl class="stats-grid">
+        <div>
+          <dt>Short URL</dt>
+          <dd><a href="/<%= link.code %>" target="_blank"><%= baseUrl %>/<%= link.code %></a></dd>
+        </div>
+
+        <div>
+          <dt>Target URL</dt>
+          <dd class="truncate" title="<%= link.target_url %>"><%= link.target_url %></dd>
+        </div>
+
+        <div>
+          <dt>Total clicks</dt>
+          <dd><%= link.total_clicks %></dd>
+        </div>
+
+        <div>
+          <dt>Last clicked</dt>
+          <dd>
+            <% if (link.last_clicked_at) { %>
+              <%= new Date(link.last_clicked_at).toLocaleString() %>
+            <% } else { %>
+              Never
+            <% } %>
+          </dd>
+        </div>
+
+        <div>
+          <dt>Created at</dt>
+          <dd><%= new Date(link.created_at).toLocaleString() %></dd>
+        </div>
+      </dl>
+
+      <div class="actions-row">
+        <a href="/" class="btn secondary">Back to dashboard</a>
+        <a href="/<%= link.code %>" target="_blank" class="btn">Open short link</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>TinyLink &middot; Stats page</span>
+  </footer>
+
+</body>
+</html>
